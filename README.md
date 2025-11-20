@@ -1,8 +1,8 @@
-# 📚 Multiversal Bookmarks
+# Connections - Knowledge Graph
 
-**Stop drowning in resources. Start building a shared future.**
+**Connect ideas. Build understanding. Share knowledge.**
 
-A collaborative bookmarking system for [themultiverse.school](http://themultiverse.school) that demonstrates Claude Code's agentic capabilities while solving a real problem: resource overload.
+A knowledge graph system for [themultiverse.school](http://themultiverse.school) to capture, organize, and connect educational resources and concepts using semantic relationships.
 
 ## 🎯 The Problem
 
@@ -16,69 +16,103 @@ But then what? Browser bookmarks? Discord links? Lost forever?
 
 ## 💡 The Solution
 
-**One beautiful, collaborative space** where the community builds its shared future through curated knowledge:
-- ✨ AI extracts metadata automatically
-- 🏷️ Smart tagging and categorization
-- 🔍 Actually useful search across everyone's finds
-- 📁 Curated collections for courses and topics
-- 👥 See what the community values and where we're heading
-
-## 🤖 Claude Code Demo Features
-
-This project showcases all four agentic coding capabilities:
-
-### 1. **Slash Commands** - Instant Productivity
-- `/bookmark [url]` - Smart add with AI extraction
-- `/find [query]` - Semantic search across all bookmarks
-- `/curate [name]` - Create themed collections
-
-### 2. **Specialized Agent** - Autonomous Intelligence
-- `bookmark-curator` - Monitors, organizes, and suggests improvements
-
-### 3. **Reusable Skills** - Code Patterns
-- Metadata extraction
-- Duplicate detection
-- Tag suggestions
-- Collection builders
-
-### 4. **Plugin System** - Extensibility
-- `resource-curator` - Utilities for external integrations
-
-## 🚀 Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Start the server
-npm start
-
-# Open in browser
-open http://localhost:3000
-
-# Try a command
-/bookmark https://react.dev/learn
-```
+**Entity-Relation knowledge graph** where concepts and resources are semantically connected:
+- 🎯 **Entities**: Concepts (abstract ideas), Resources (URLs), People (contributors)
+- 🔗 **Relations**: Typed connections (EXEMPLIFIES, REQUIRES, DEFINES, etc.)
+- 📊 **Properties**: Flexible JSON attributes on entities and relations
+- 🔍 **Graph Traversal**: Navigate connections to discover knowledge
 
 ## 🏗️ Architecture
 
+**Entity-Relation Model:**
+- **Entities**: Nodes with types and flexible properties
+- **Relations**: Typed, directed edges with metadata
+- **Storage**: SQLite with JSON (no ORM, direct aiosqlite)
+- **API**: FastAPI with automatic OpenAPI docs
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Python 3.11+**
+- **uv** - Fast Python package manager
+
+Install uv:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-multiversal-bookmarks/
-├── .claude/              # Claude Code workspace
-│   ├── commands/         # Slash commands
-│   ├── agents/          # Autonomous agents
-│   ├── skills/          # Reusable patterns
-│   └── plugins/         # Extension system
-├── backend/             # Express + SQLite API
-├── frontend/            # Beautiful Tailwind UI
-└── docker-compose.yml   # One-command deploy
+
+### Installation
+
+```bash
+# Install dependencies (creates .venv automatically)
+uv sync
+```
+
+### Run Development Server
+
+```bash
+# Start with auto-reload
+./scripts/dev.sh
+
+# Or manually:
+uv run uvicorn backend.main:app --reload --port 8000
+```
+
+### Access
+
+- **Web UI**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs (Swagger UI)
+- **API**: http://localhost:8000/api/*
+
+## 📁 Project Structure
+
+```
+connections/
+├── backend/
+│   ├── models.py      # Entity and Relation data classes
+│   ├── storage.py     # KnowledgeGraph (SQLite storage)
+│   └── main.py        # FastAPI application
+├── frontend/
+│   ├── index.html     # Web UI
+│   └── app.js         # Client-side logic
+├── scripts/
+│   ├── dev.sh         # Development server
+│   └── reset_db.sh    # Reset database
+├── openspec/          # OpenSpec documentation
+├── pyproject.toml     # Project configuration
+└── README.md
 ```
 
 ## 🎓 For Multiverse School
 
-**Faculty**: Create reading lists that shape courses
-**Students**: Share discoveries that accelerate learning
-**Admin**: Organize knowledge that builds community
-**Everyone**: Curate resources that define our shared future
+**Faculty**: Define concepts and connect to best resources
+**Students**: Discover learning paths through concept relationships
+**Admin**: Organize knowledge with semantic connections
+**Everyone**: Build a shared understanding through linked ideas
 
-Built with ❤️ for collaborative learning and collective progress
+## 🔧 Tech Stack
+
+- **Backend**: Python 3.11+ with FastAPI
+- **Database**: SQLite3 with aiosqlite (async, no ORM)
+- **Frontend**: Vanilla JavaScript + Tailwind CSS
+- **Package Manager**: uv (modern, fast)
+- **Development**: uvicorn with hot-reload
+
+## 📚 Design Principles
+
+- **No ORM**: Direct SQL for transparency
+- **Flexible schema**: JSON properties, no migrations needed
+- **Type hints**: Modern Python with dataclasses
+- **Simple first**: Single-file implementations until proven insufficient
+- **Storage agnostic**: Easy to swap backends
+
+## 🚀 Next Steps
+
+See `openspec/changes/` for planned enhancements:
+- Concept and Resource entity types
+- Semantic relations (EXEMPLIFIES, REQUIRES, etc.)
+- Provenance tracking
+- Search and discovery
+
+Built with ❤️ for collaborative learning through connected knowledge
