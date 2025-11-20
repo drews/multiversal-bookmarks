@@ -1,370 +1,315 @@
-// API Base URL
+// Connections Knowledge Graph - Frontend Application
+
 const API_BASE = '/api';
 
-// State
-let bookmarks = [];
-let tags = [];
-let collections = [];
-let currentFilter = null;
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  loadBookmarks();
-  loadTags();
-  loadCollections();
-});
-
-// ========== Load Data ==========
-
-async function loadBookmarks() {
-  try {
-    const response = await fetch(`${API_BASE}/bookmarks`);
-    bookmarks = await response.json();
-    renderBookmarks(bookmarks);
-    updateStats();
-  } catch (error) {
-    console.error('Error loading bookmarks:', error);
-    showError('Failed to load bookmarks');
-  }
-}
-
-async function loadTags() {
-  try {
-    const response = await fetch(`${API_BASE}/tags`);
-    tags = await response.json();
-    renderTags(tags);
-  } catch (error) {
-    console.error('Error loading tags:', error);
-  }
-}
-
-async function loadCollections() {
-  try {
-    const response = await fetch(`${API_BASE}/collections`);
-    collections = await response.json();
-    renderCollections(collections);
-  } catch (error) {
-    console.error('Error loading collections:', error);
-  }
-}
-
-// ========== Render Functions ==========
-
-function renderBookmarks(bookmarksToRender) {
-  const grid = document.getElementById('bookmarksGrid');
-  const count = document.getElementById('bookmarkCount');
-
-  count.textContent = `${bookmarksToRender.length} resources`;
-
-  if (bookmarksToRender.length === 0) {
-    grid.innerHTML = `
-      <div class="col-span-2 text-center py-12">
-        <div class="text-6xl mb-4">📚</div>
-        <h3 class="text-xl font-semibold text-gray-900 mb-2">No bookmarks yet</h3>
-        <p class="text-gray-600 mb-4">Start building your shared future by adding your first resource!</p>
-        <button
-          onclick="showAddModal()"
-          class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
-          + Add Your First Bookmark
-        </button>
-      </div>
-    `;
-    return;
-  }
-
-  grid.innerHTML = bookmarksToRender.map(bookmark => `
-    <div class="bookmark-card bg-white rounded-xl shadow-sm border border-blue-100 p-5 hover:border-blue-300">
-      <div class="flex items-start gap-3">
-        <img
-          src="${bookmark.favicon || 'https://via.placeholder.com/32'}"
-          alt="favicon"
-          class="w-8 h-8 rounded flex-shrink-0"
-          onerror="this.src='https://via.placeholder.com/32'">
-        <div class="flex-1 min-w-0">
-          <a
-            href="${bookmark.url}"
-            target="_blank"
-            class="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors block mb-1 truncate">
-            ${bookmark.title}
-          </a>
-          <p class="text-sm text-gray-600 mb-3 line-clamp-2">${bookmark.description || 'No description available'}</p>
-
-          <!-- Tags -->
-          ${bookmark.tags && bookmark.tags.length > 0 ? `
-            <div class="flex flex-wrap gap-1 mb-3">
-              ${bookmark.tags.map(tag => `
-                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700 cursor-pointer hover:bg-blue-200 transition-colors" onclick="filterByTag('${tag}')">
-                  #${tag}
-                </span>
-              `).join('')}
-            </div>
-          ` : ''}
-
-          <!-- Meta -->
-          <div class="flex items-center justify-between text-xs text-gray-500">
-            <span class="flex items-center gap-1">
-              <span class="font-medium">${getTypeEmoji(bookmark.type)}</span>
-              ${bookmark.type}
-            </span>
-            <span>by ${bookmark.added_by}</span>
-          </div>
+// Utilities
+function showMessage(elementId, message, isError = false) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = `
+        <div class="p-4 rounded-md ${isError ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}">
+            ${message}
         </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="mt-4 pt-4 border-t border-gray-100 flex gap-2">
-        <button
-          onclick="addToCollectionPrompt(${bookmark.id})"
-          class="flex-1 text-sm text-gray-700 hover:text-blue-600 font-medium transition-colors">
-          📁 Add to Collection
-        </button>
-        <button
-          onclick="deleteBookmark(${bookmark.id})"
-          class="text-sm text-gray-500 hover:text-red-600 transition-colors">
-          🗑️
-        </button>
-      </div>
-    </div>
-  `).join('');
+    `;
+    setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
-function renderTags(tagsToRender) {
-  const tagsList = document.getElementById('tagsList');
-
-  if (tagsToRender.length === 0) {
-    tagsList.innerHTML = '<p class="text-sm text-gray-500">No tags yet</p>';
-    return;
-  }
-
-  tagsList.innerHTML = tagsToRender.map(tag => `
-    <button
-      onclick="filterByTag('${tag.name}')"
-      class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
-      ${tag.name}
-      <span class="ml-1 text-xs opacity-75">${tag.count}</span>
-    </button>
-  `).join('');
+function formatJSON(obj) {
+    return JSON.stringify(obj, null, 2);
 }
 
-function renderCollections(collectionsToRender) {
-  const collectionsList = document.getElementById('collectionsList');
+// Create Entity
+document.getElementById('createEntityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-  if (collectionsToRender.length === 0) {
-    collectionsList.innerHTML = '<p class="text-sm text-gray-500">No collections yet</p>';
-    return;
-  }
+    const typesInput = document.getElementById('entityTypes').value.trim();
+    const propertiesInput = document.getElementById('entityProperties').value.trim();
 
-  collectionsList.innerHTML = collectionsToRender.map(collection => `
-    <button
-      onclick="viewCollection(${collection.id})"
-      class="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors">
-      <div class="font-medium text-gray-900 text-sm">${collection.name}</div>
-      <div class="text-xs text-gray-500">${collection.bookmark_count} bookmarks</div>
-    </button>
-  `).join('');
-}
+    const types = typesInput.split(',').map(t => t.trim()).filter(t => t);
 
-function updateStats() {
-  document.getElementById('statsBookmarks').textContent = `${bookmarks.length} bookmarks`;
-  document.getElementById('statsTags').textContent = `${tags.length} tags`;
-  document.getElementById('statsCollections').textContent = `${collections.length} collections`;
-}
-
-// ========== Actions ==========
-
-function showAddModal() {
-  document.getElementById('addModal').classList.remove('hidden');
-  document.getElementById('bookmarkUrl').focus();
-}
-
-function hideAddModal() {
-  document.getElementById('addModal').classList.add('hidden');
-  document.getElementById('bookmarkUrl').value = '';
-  document.getElementById('bookmarkTags').value = '';
-  document.getElementById('bookmarkAddedBy').value = '';
-  document.getElementById('addStatus').innerHTML = '';
-}
-
-async function addBookmark(event) {
-  event.preventDefault();
-
-  const url = document.getElementById('bookmarkUrl').value;
-  const tagsInput = document.getElementById('bookmarkTags').value;
-  const addedBy = document.getElementById('bookmarkAddedBy').value || 'anonymous';
-
-  const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
-
-  const statusEl = document.getElementById('addStatus');
-  statusEl.innerHTML = '<div class="text-blue-600">⏳ Fetching metadata and saving...</div>';
-
-  try {
-    const response = await fetch(`${API_BASE}/bookmarks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, tags, added_by: addedBy })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to save bookmark');
+    if (types.length === 0) {
+        showMessage('entityResult', 'Please enter at least one type', true);
+        return;
     }
 
-    const bookmark = await response.json();
-    statusEl.innerHTML = `<div class="text-green-600">✓ Saved: ${bookmark.title}</div>`;
+    let properties = {};
+    if (propertiesInput) {
+        try {
+            properties = JSON.parse(propertiesInput);
+        } catch (err) {
+            showMessage('entityResult', `Invalid JSON: ${err.message}`, true);
+            return;
+        }
+    }
 
-    setTimeout(() => {
-      hideAddModal();
-      loadBookmarks();
-      loadTags();
-    }, 1500);
+    try {
+        const response = await fetch(`${API_BASE}/entities`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ types, properties })
+        });
 
-  } catch (error) {
-    console.error('Error adding bookmark:', error);
-    statusEl.innerHTML = `<div class="text-red-600">✗ Error: ${error.message}</div>`;
-  }
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create entity');
+        }
+
+        const entity = await response.json();
+        showMessage('entityResult', `
+            <strong>Entity created!</strong><br>
+            <span class="text-sm">ID: ${entity.id}</span><br>
+            <button onclick="copyToClipboard('${entity.id}')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded">
+                Copy ID
+            </button>
+        `);
+
+        // Clear form and reload entities
+        document.getElementById('entityTypes').value = '';
+        document.getElementById('entityProperties').value = '';
+        loadEntities();
+    } catch (err) {
+        showMessage('entityResult', err.message, true);
+    }
+});
+
+// Load and display entities
+async function loadEntities() {
+    const filterInput = document.getElementById('filterTypes').value.trim();
+    const types = filterInput ? filterInput.split(',').map(t => t.trim()).filter(t => t) : null;
+
+    try {
+        const params = new URLSearchParams();
+        if (types && types.length > 0) {
+            types.forEach(t => params.append('types', t));
+        }
+
+        const response = await fetch(`${API_BASE}/entities?${params}`);
+        const data = await response.json();
+
+        const list = document.getElementById('entitiesList');
+
+        if (data.entities.length === 0) {
+            list.innerHTML = '<p class="text-gray-500 text-sm col-span-2">No entities found</p>';
+            return;
+        }
+
+        list.innerHTML = data.entities.map(entity => `
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                 onclick="viewEntity('${entity.id}')">
+                <div class="flex gap-2 mb-2">
+                    ${entity.types.map(type => `
+                        <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                            ${type}
+                        </span>
+                    `).join('')}
+                </div>
+                <div class="text-sm text-gray-600 font-mono">
+                    ${entity.id.substring(0, 8)}...
+                </div>
+                ${Object.keys(entity.properties).length > 0 ? `
+                    <div class="mt-2 text-sm">
+                        ${Object.entries(entity.properties).slice(0, 2).map(([k, v]) => `
+                            <div class="text-gray-700">
+                                <span class="font-medium">${k}:</span>
+                                ${typeof v === 'string' ? v.substring(0, 50) : JSON.stringify(v)}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        document.getElementById('entitiesList').innerHTML = `
+            <p class="text-red-500 text-sm col-span-2">Error loading entities: ${err.message}</p>
+        `;
+    }
 }
 
-async function deleteBookmark(id) {
-  if (!confirm('Delete this bookmark?')) return;
+// View entity details
+async function viewEntity(entityId) {
+    try {
+        const [entityResponse, outgoingResponse, incomingResponse] = await Promise.all([
+            fetch(`${API_BASE}/entities/${entityId}`),
+            fetch(`${API_BASE}/entities/${entityId}/relations/outgoing`),
+            fetch(`${API_BASE}/entities/${entityId}/relations/incoming`)
+        ]);
 
-  try {
-    await fetch(`${API_BASE}/bookmarks/${id}`, { method: 'DELETE' });
-    loadBookmarks();
-    loadTags();
-  } catch (error) {
-    console.error('Error deleting bookmark:', error);
-    showError('Failed to delete bookmark');
-  }
+        const entity = await entityResponse.json();
+        const outgoing = await outgoingResponse.json();
+        const incoming = await incomingResponse.json();
+
+        const detailsSection = document.getElementById('entityDetails');
+        const detailsContent = document.getElementById('entityDetailsContent');
+
+        detailsContent.innerHTML = `
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2">Types</h3>
+                    <div class="flex gap-2">
+                        ${entity.types.map(type => `
+                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded">
+                                ${type}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2">ID</h3>
+                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">${entity.id}</code>
+                    <button onclick="copyToClipboard('${entity.id}')" class="ml-2 text-xs bg-gray-200 px-2 py-1 rounded">
+                        Copy
+                    </button>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2">Properties</h3>
+                    <pre class="bg-gray-50 p-3 rounded text-sm overflow-auto">${formatJSON(entity.properties)}</pre>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2">Outgoing Relations (${outgoing.count})</h3>
+                    ${outgoing.count > 0 ? `
+                        <div class="space-y-2">
+                            ${outgoing.relations.map(rel => `
+                                <div class="border border-gray-200 rounded p-2 text-sm">
+                                    <div class="font-medium text-green-700">${rel.relation_type}</div>
+                                    <div class="text-gray-600">→ ${rel.to_entity.substring(0, 8)}...</div>
+                                    ${Object.keys(rel.properties).length > 0 ? `
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            ${formatJSON(rel.properties)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p class="text-gray-500 text-sm">None</p>'}
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-2">Incoming Relations (${incoming.count})</h3>
+                    ${incoming.count > 0 ? `
+                        <div class="space-y-2">
+                            ${incoming.relations.map(rel => `
+                                <div class="border border-gray-200 rounded p-2 text-sm">
+                                    <div class="font-medium text-purple-700">${rel.relation_type}</div>
+                                    <div class="text-gray-600">← ${rel.from_entity.substring(0, 8)}...</div>
+                                    ${Object.keys(rel.properties).length > 0 ? `
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            ${formatJSON(rel.properties)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p class="text-gray-500 text-sm">None</p>'}
+                </div>
+
+                <div class="pt-4 border-t">
+                    <button
+                        onclick="deleteEntity('${entity.id}')"
+                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm"
+                    >
+                        Delete Entity
+                    </button>
+                </div>
+            </div>
+        `;
+
+        detailsSection.classList.remove('hidden');
+        detailsSection.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        alert(`Error loading entity: ${err.message}`);
+    }
 }
 
-async function searchBookmarks() {
-  const query = document.getElementById('searchInput').value.trim();
-
-  if (!query) {
-    renderBookmarks(bookmarks);
-    document.getElementById('viewTitle').textContent = 'All Bookmarks';
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-    const results = await response.json();
-    renderBookmarks(results);
-    document.getElementById('viewTitle').textContent = `Search: "${query}"`;
-  } catch (error) {
-    console.error('Error searching:', error);
-    showError('Search failed');
-  }
+function closeEntityDetails() {
+    document.getElementById('entityDetails').classList.add('hidden');
 }
 
-function filterByTag(tagName) {
-  const filtered = bookmarks.filter(b => b.tags && b.tags.includes(tagName));
-  renderBookmarks(filtered);
-  document.getElementById('viewTitle').textContent = `Tag: #${tagName}`;
+// Delete entity
+async function deleteEntity(entityId) {
+    if (!confirm('Delete this entity? All relations will also be deleted.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/entities/${entityId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete entity');
+        }
+
+        closeEntityDetails();
+        loadEntities();
+    } catch (err) {
+        alert(`Error deleting entity: ${err.message}`);
+    }
 }
 
-async function viewCollection(collectionId) {
-  try {
-    const response = await fetch(`${API_BASE}/collections/${collectionId}/bookmarks`);
-    const collectionBookmarks = await response.json();
+// Create Relation
+document.getElementById('createRelationForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-    const collection = collections.find(c => c.id === collectionId);
-    renderBookmarks(collectionBookmarks);
-    document.getElementById('viewTitle').textContent = `📁 ${collection.name}`;
-  } catch (error) {
-    console.error('Error loading collection:', error);
-    showError('Failed to load collection');
-  }
+    const fromEntity = document.getElementById('fromEntity').value.trim();
+    const toEntity = document.getElementById('toEntity').value.trim();
+    const relationType = document.getElementById('relationType').value.trim();
+    const propertiesInput = document.getElementById('relationProperties').value.trim();
+
+    if (!fromEntity || !toEntity || !relationType) {
+        showMessage('relationResult', 'Please fill in all required fields', true);
+        return;
+    }
+
+    let properties = {};
+    if (propertiesInput) {
+        try {
+            properties = JSON.parse(propertiesInput);
+        } catch (err) {
+            showMessage('relationResult', `Invalid JSON: ${err.message}`, true);
+            return;
+        }
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/relations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                from_entity: fromEntity,
+                to_entity: toEntity,
+                relation_type: relationType,
+                properties
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create relation');
+        }
+
+        const relation = await response.json();
+        showMessage('relationResult', `
+            <strong>Relation created!</strong><br>
+            <span class="text-sm">${relation.relation_type}</span>
+        `);
+
+        // Clear form
+        document.getElementById('fromEntity').value = '';
+        document.getElementById('toEntity').value = '';
+        document.getElementById('relationType').value = '';
+        document.getElementById('relationProperties').value = '';
+    } catch (err) {
+        showMessage('relationResult', err.message, true);
+    }
+});
+
+// Utility functions
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+    alert('Copied to clipboard!');
 }
 
-function showCreateCollectionModal() {
-  document.getElementById('collectionModal').classList.remove('hidden');
-  document.getElementById('collectionName').focus();
-}
-
-function hideCollectionModal() {
-  document.getElementById('collectionModal').classList.add('hidden');
-  document.getElementById('collectionName').value = '';
-  document.getElementById('collectionDescription').value = '';
-}
-
-async function createCollection(event) {
-  event.preventDefault();
-
-  const name = document.getElementById('collectionName').value;
-  const description = document.getElementById('collectionDescription').value;
-
-  try {
-    const response = await fetch(`${API_BASE}/collections`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description })
-    });
-
-    if (!response.ok) throw new Error('Failed to create collection');
-
-    hideCollectionModal();
-    loadCollections();
-  } catch (error) {
-    console.error('Error creating collection:', error);
-    alert('Failed to create collection');
-  }
-}
-
-async function addToCollectionPrompt(bookmarkId) {
-  if (collections.length === 0) {
-    alert('Create a collection first!');
-    showCreateCollectionModal();
-    return;
-  }
-
-  const collectionNames = collections.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-  const choice = prompt(`Add to collection:\n\n${collectionNames}\n\nEnter number:`);
-
-  if (!choice) return;
-
-  const index = parseInt(choice) - 1;
-  if (index < 0 || index >= collections.length) {
-    alert('Invalid choice');
-    return;
-  }
-
-  const collectionId = collections[index].id;
-
-  try {
-    await fetch(`${API_BASE}/collections/${collectionId}/bookmarks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookmark_id: bookmarkId })
-    });
-    alert('Added to collection!');
-  } catch (error) {
-    console.error('Error adding to collection:', error);
-    alert('Failed to add to collection');
-  }
-}
-
-// ========== Utilities ==========
-
-function getTypeEmoji(type) {
-  const emojis = {
-    'video': '🎥',
-    'documentation': '📖',
-    'tutorial': '🎓',
-    'article': '📝',
-    'tool': '🛠️',
-    'website': '🌐'
-  };
-  return emojis[type] || '🔗';
-}
-
-function showError(message) {
-  alert(message); // In production, use a toast notification
-}
-
-// Debounce search
-let searchTimeout;
-const originalSearchBookmarks = searchBookmarks;
-searchBookmarks = function() {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(originalSearchBookmarks, 300);
-};
+// Load entities on page load
+loadEntities();
