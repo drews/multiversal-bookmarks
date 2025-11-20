@@ -63,6 +63,134 @@ async def health_check():
     return {"status": "ok"}
 
 
+# Concept endpoints (convenience wrappers for Concept entities)
+
+@app.post("/api/concepts", status_code=201)
+async def create_concept(
+    name: str,
+    definition: str,
+    scope: Optional[str] = None,
+    aliases: Optional[list[str]] = None,
+    disambiguation: Optional[str] = None,
+    maturity: Optional[str] = None
+):
+    """Create a new concept."""
+    properties = {
+        "name": name,
+        "definition": definition
+    }
+    if scope:
+        properties["scope"] = scope
+    if aliases:
+        properties["aliases"] = aliases
+    if disambiguation:
+        properties["disambiguation"] = disambiguation
+    if maturity:
+        properties["maturity"] = maturity
+
+    entity = Entity(
+        id=new_uuid(),
+        types=["Concept"],
+        properties=properties
+    )
+    created = await get_kg().create_entity(entity)
+    return created.to_dict()
+
+
+@app.get("/api/concepts")
+async def list_concepts(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """List all concepts."""
+    entities = await get_kg().list_entities(types=["Concept"], limit=limit, offset=offset)
+    return {
+        "concepts": [e.to_dict() for e in entities],
+        "count": len(entities),
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@app.get("/api/concepts/{concept_id}")
+async def get_concept(concept_id: str):
+    """Get concept by ID."""
+    entity = await get_kg().get_entity(concept_id)
+    if not entity or "Concept" not in entity.types:
+        raise HTTPException(status_code=404, detail=f"Concept {concept_id} not found")
+    return entity.to_dict()
+
+
+# Resource endpoints (convenience wrappers for Resource entities)
+
+@app.post("/api/resources", status_code=201)
+async def create_resource(
+    url: str,
+    title: str,
+    description: Optional[str] = None,
+    content_type: Optional[str] = None,
+    author: Optional[str] = None,
+    published_at: Optional[str] = None,
+    authority_score: Optional[float] = None
+):
+    """Create a new resource."""
+    # Check for duplicate URL
+    existing = await get_kg().list_entities(types=["Resource"], limit=1000)
+    for resource in existing:
+        if resource.properties.get("url") == url:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Resource with URL '{url}' already exists (ID: {resource.id})"
+            )
+
+    properties = {
+        "url": url,
+        "title": title
+    }
+    if description:
+        properties["description"] = description
+    if content_type:
+        properties["content_type"] = content_type
+    if author:
+        properties["author"] = author
+    if published_at:
+        properties["published_at"] = published_at
+    if authority_score is not None:
+        properties["authority_score"] = authority_score
+
+    entity = Entity(
+        id=new_uuid(),
+        types=["Resource"],
+        properties=properties
+    )
+    created = await get_kg().create_entity(entity)
+    return created.to_dict()
+
+
+@app.get("/api/resources")
+async def list_resources(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """List all resources."""
+    entities = await get_kg().list_entities(types=["Resource"], limit=limit, offset=offset)
+    return {
+        "resources": [e.to_dict() for e in entities],
+        "count": len(entities),
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@app.get("/api/resources/{resource_id}")
+async def get_resource(resource_id: str):
+    """Get resource by ID."""
+    entity = await get_kg().get_entity(resource_id)
+    if not entity or "Resource" not in entity.types:
+        raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
+    return entity.to_dict()
+
+
 # Entity endpoints
 
 @app.post("/api/entities", status_code=201)
