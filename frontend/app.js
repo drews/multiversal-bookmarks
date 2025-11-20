@@ -17,6 +17,118 @@ function formatJSON(obj) {
     return JSON.stringify(obj, null, 2);
 }
 
+// Create Concept
+document.getElementById('createConceptForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById('conceptName').value.trim();
+    const definition = document.getElementById('conceptDefinition').value.trim();
+    const scope = document.getElementById('conceptScope').value.trim();
+    const aliasesInput = document.getElementById('conceptAliases').value.trim();
+
+    if (!name || !definition) {
+        showMessage('conceptResult', 'Name and definition are required', true);
+        return;
+    }
+
+    const body = { name, definition };
+    if (scope) body.scope = scope;
+    if (aliasesInput) {
+        body.aliases = aliasesInput.split(',').map(a => a.trim()).filter(a => a);
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/concepts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create concept');
+        }
+
+        const concept = await response.json();
+        showMessage('conceptResult', `
+            <strong>Concept created!</strong><br>
+            <span class="text-sm">${concept.properties.name}</span><br>
+            <button onclick="copyToClipboard('${concept.id}')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded">
+                Copy ID
+            </button>
+        `);
+
+        // Clear form
+        document.getElementById('conceptName').value = '';
+        document.getElementById('conceptDefinition').value = '';
+        document.getElementById('conceptScope').value = '';
+        document.getElementById('conceptAliases').value = '';
+
+        loadEntities();
+    } catch (err) {
+        showMessage('conceptResult', err.message, true);
+    }
+});
+
+// Create Resource
+document.getElementById('createResourceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const url = document.getElementById('resourceUrl').value.trim();
+    const title = document.getElementById('resourceTitle').value.trim();
+    const description = document.getElementById('resourceDescription').value.trim();
+    const content_type = document.getElementById('resourceContentType').value;
+    const author = document.getElementById('resourceAuthor').value.trim();
+    const published_at = document.getElementById('resourcePublishedAt').value;
+
+    if (!url || !title) {
+        showMessage('resourceResult', 'URL and title are required', true);
+        return;
+    }
+
+    const body = { url, title };
+    if (description) body.description = description;
+    if (content_type) body.content_type = content_type;
+    if (author) body.author = author;
+    if (published_at) body.published_at = published_at;
+
+    try {
+        const response = await fetch(`${API_BASE}/resources`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create resource');
+        }
+
+        const resource = await response.json();
+        showMessage('resourceResult', `
+            <strong>Resource created!</strong><br>
+            <a href="${resource.properties.url}" target="_blank" class="text-sm text-blue-600 hover:underline">
+                ${resource.properties.title}
+            </a><br>
+            <button onclick="copyToClipboard('${resource.id}')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded">
+                Copy ID
+            </button>
+        `);
+
+        // Clear form
+        document.getElementById('resourceUrl').value = '';
+        document.getElementById('resourceTitle').value = '';
+        document.getElementById('resourceDescription').value = '';
+        document.getElementById('resourceContentType').value = '';
+        document.getElementById('resourceAuthor').value = '';
+        document.getElementById('resourcePublishedAt').value = '';
+
+        loadEntities();
+    } catch (err) {
+        showMessage('resourceResult', err.message, true);
+    }
+});
+
 // Create Entity
 document.getElementById('createEntityForm').addEventListener('submit', async (e) => {
     e.preventDefault();
